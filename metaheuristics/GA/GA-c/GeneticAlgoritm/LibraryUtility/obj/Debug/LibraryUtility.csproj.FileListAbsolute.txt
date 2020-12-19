@@ -1,0 +1,6 @@
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\bin\Debug\LibraryUtility.exe.config
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\bin\Debug\LibraryUtility.exe
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\bin\Debug\LibraryUtility.pdb
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\obj\Debug\LibraryUtility.csprojAssemblyReference.cache
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\obj\Debug\LibraryUtility.exe
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\LibraryUtility\obj\Debug\LibraryUtility.pdb

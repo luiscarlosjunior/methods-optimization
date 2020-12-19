@@ -1,0 +1,5 @@
+﻿  AntColonyOptimization.cpp
+C:\Users\luisc\source\repos\AntColonyOptimization\AntColonyOptimization.cpp(60,23): warning C4018: '<': incompatibilidade de signed/unsigned
+C:\Users\luisc\source\repos\AntColonyOptimization\AntColonyOptimization.cpp(71,23): warning C4018: '<': incompatibilidade de signed/unsigned
+C:\Users\luisc\source\repos\AntColonyOptimization\AntColonyOptimization.cpp(87,15): warning C4244: 'argumento': conversão de 'time_t' para 'unsigned int', possível perda de dados
+  AntColonyOptimization.vcxproj -> C:\Users\luisc\source\repos\AntColonyOptimization\Debug\AntColonyOptimization.exe

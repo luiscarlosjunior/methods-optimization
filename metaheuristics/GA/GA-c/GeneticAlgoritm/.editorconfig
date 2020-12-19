@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# CA1819: As propriedades não devem retornar matrizes
+dotnet_diagnostic.CA1819.severity = suggestion

@@ -1,0 +1,6 @@
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\bin\Debug\TestPerformance.exe.config
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\bin\Debug\TestPerformance.exe
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\bin\Debug\TestPerformance.pdb
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\obj\Debug\TestPerformance.exe
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\obj\Debug\TestPerformance.pdb
+C:\Users\luisc\Documents\GitHub\Doutorado\GeneticAlgoritm\TestPerformance\obj\Debug\TestPerformance.csprojAssemblyReference.cache
