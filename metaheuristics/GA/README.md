@@ -1322,19 +1322,31 @@ Stop when ANY of these conditions is met:
 
 ### Q5: What is the relationship between population size and chromosome length?
 
-```
-Recommended: N ≈ 2 × √(2^L)  for binary chromosomes
-            or N ≈ 10 × d    for d-dimensional real-valued problems
+**Standard Guidelines from GA Literature:**
 
-Example calculations:
-┌────────────────────┬────────────────────────────────┐
-│ Chromosome Length  │ Recommended Population Size    │
-├────────────────────┼────────────────────────────────┤
-│        10 bits     │        N ≈ 64                  │
-│        20 bits     │        N ≈ 2048                │
-│        5 real vars │        N ≈ 50                  │
-│       20 real vars │        N ≈ 200                 │
-└────────────────────┴────────────────────────────────┘
+```
+For binary chromosomes:
+  - Simple rule: N = 50-200 for most problems
+  - More refined: N ≈ 1.65 × 2^(0.21 × L)  (Goldberg et al., 1992)
+  - Practical: Start with 100, adjust based on convergence
+
+For real-valued problems:
+  - Rule of thumb: N ≈ 10 × d  (where d = number of variables)
+  - Minimum: N ≥ 30 for statistical validity
+
+Example recommendations:
+┌────────────────────────┬────────────────────────────────┐
+│ Problem Type           │ Recommended Population Size    │
+├────────────────────────┼────────────────────────────────┤
+│ Simple (L < 30 bits)   │        N = 50-100              │
+│ Medium (30-100 bits)   │        N = 100-200             │
+│ Complex (> 100 bits)   │        N = 200-500             │
+│ 5 real variables       │        N = 50-100              │
+│ 20 real variables      │        N = 100-200             │
+└────────────────────────┴────────────────────────────────┘
+
+Tip: If unsure, start with N = 100 and observe convergence behavior.
+     Increase if you see premature convergence; decrease if too slow.
 ```
 
 ### Q6: Can I use GA for machine learning tasks?
