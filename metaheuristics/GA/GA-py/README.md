@@ -410,6 +410,205 @@ Tested on standard functions (100 runs, 100 iterations):
 - [C# Implementation](../GA-c/README.md)
 - [MATLAB Implementation](../GA-matlab/README.md)
 
+## Advanced Python Implementation Topics
+
+### Custom Crossover Operators
+
+Implement additional crossover operators for different problem types:
+
+```python
+def simulated_binary_crossover(p1, p2, eta=20):
+    """
+    Simulated Binary Crossover (SBX) for real-valued encoding.
+    
+    Args:
+        p1, p2: Parent chromosomes (numpy arrays)
+        eta: Distribution index (higher = children closer to parents)
+    
+    Returns:
+        Two offspring chromosomes
+    """
+    n = len(p1)
+    c1, c2 = np.zeros(n), np.zeros(n)
+    
+    for i in range(n):
+        if np.random.random() <= 0.5:
+            if abs(p1[i] - p2[i]) > 1e-10:
+                if p1[i] < p2[i]:
+                    y1, y2 = p1[i], p2[i]
+                else:
+                    y1, y2 = p2[i], p1[i]
+                
+                rand = np.random.random()
+                beta = 1.0 + (2.0 * (y1) / (y2 - y1))
+                alpha = 2.0 - beta ** (-(eta + 1.0))
+                
+                if rand <= (1.0 / alpha):
+                    beta_q = (rand * alpha) ** (1.0 / (eta + 1.0))
+                else:
+                    beta_q = (1.0 / (2.0 - rand * alpha)) ** (1.0 / (eta + 1.0))
+                
+                c1[i] = 0.5 * ((y1 + y2) - beta_q * (y2 - y1))
+                c2[i] = 0.5 * ((y1 + y2) + beta_q * (y2 - y1))
+            else:
+                c1[i], c2[i] = p1[i], p2[i]
+        else:
+            c1[i], c2[i] = p1[i], p2[i]
+    
+    return c1, c2
+
+def uniform_crossover(p1, p2, swap_prob=0.5):
+    """
+    Uniform crossover - each gene independently inherited.
+    
+    Args:
+        p1, p2: Parent chromosomes
+        swap_prob: Probability of taking gene from p2
+    
+    Returns:
+        Two offspring chromosomes
+    """
+    n = len(p1)
+    mask = np.random.random(n) < swap_prob
+    
+    c1 = np.where(mask, p2, p1)
+    c2 = np.where(mask, p1, p2)
+    
+    return c1, c2
+```
+
+### Adaptive Parameter Control
+
+Implement self-adaptive mutation rate:
+
+```python
+class AdaptiveGA:
+    """
+    GA with self-adaptive mutation rate.
+    Each individual carries its own mutation rate that co-evolves.
+    """
+    
+    def __init__(self, problem, params):
+        self.problem = problem
+        self.params = params
+        self.tau = 1.0 / np.sqrt(2 * problem.nvar)  # Learning rate
+        
+    def create_individual(self):
+        """Create individual with adaptive mutation rate."""
+        return {
+            'position': np.random.uniform(
+                self.problem.varmin, 
+                self.problem.varmax, 
+                self.problem.nvar
+            ),
+            'sigma': np.random.uniform(0.01, 0.3),  # Mutation rate
+            'cost': None
+        }
+    
+    def mutate(self, ind):
+        """Self-adaptive mutation."""
+        # Mutate the mutation rate first
+        ind['sigma'] *= np.exp(self.tau * np.random.randn())
+        ind['sigma'] = np.clip(ind['sigma'], 0.001, 0.5)
+        
+        # Then mutate the solution
+        n = len(ind['position'])
+        for i in range(n):
+            if np.random.random() < ind['sigma']:
+                ind['position'][i] += np.random.randn() * ind['sigma']
+        
+        # Apply bounds
+        ind['position'] = np.clip(
+            ind['position'], 
+            self.problem.varmin, 
+            self.problem.varmax
+        )
+        
+        return ind
+```
+
+### Multi-Objective Optimization (NSGA-II Lite)
+
+Simple implementation of non-dominated sorting:
+
+```python
+def dominates(obj1, obj2):
+    """Check if obj1 dominates obj2 (for minimization)."""
+    return all(o1 <= o2 for o1, o2 in zip(obj1, obj2)) and \
+           any(o1 < o2 for o1, o2 in zip(obj1, obj2))
+
+def fast_non_dominated_sort(population):
+    """
+    Fast non-dominated sorting from NSGA-II.
+    
+    Args:
+        population: List of individuals with 'objectives' attribute
+    
+    Returns:
+        List of fronts (each front is a list of individual indices)
+    """
+    n = len(population)
+    domination_count = [0] * n
+    dominated_solutions = [[] for _ in range(n)]
+    fronts = [[]]
+    
+    for i in range(n):
+        for j in range(i + 1, n):
+            if dominates(population[i]['objectives'], 
+                        population[j]['objectives']):
+                dominated_solutions[i].append(j)
+                domination_count[j] += 1
+            elif dominates(population[j]['objectives'], 
+                          population[i]['objectives']):
+                dominated_solutions[j].append(i)
+                domination_count[i] += 1
+        
+        if domination_count[i] == 0:
+            fronts[0].append(i)
+    
+    i = 0
+    while fronts[i]:
+        next_front = []
+        for p in fronts[i]:
+            for q in dominated_solutions[p]:
+                domination_count[q] -= 1
+                if domination_count[q] == 0:
+                    next_front.append(q)
+        i += 1
+        fronts.append(next_front)
+    
+    return fronts[:-1]  # Remove last empty front
+```
+
+### Integration with scikit-optimize
+
+Use GA alongside other optimization methods:
+
+```python
+from skopt import gp_minimize
+from skopt.space import Real, Integer
+
+def hybrid_optimization(objective, bounds, n_initial_ga=100, n_bayesian=50):
+    """
+    Hybrid approach: GA for initial exploration, Bayesian for refinement.
+    """
+    # Phase 1: GA exploration
+    ga_result = run_ga(objective, bounds, max_iter=n_initial_ga)
+    
+    # Phase 2: Bayesian optimization starting from GA best
+    space = [Real(low, high) for low, high in bounds]
+    
+    result = gp_minimize(
+        objective,
+        space,
+        n_calls=n_bayesian,
+        x0=ga_result.bestsol.position.tolist(),
+        y0=ga_result.bestsol.cost
+    )
+    
+    return result
+```
+
 ---
 
 *For bug reports or feature requests, please open an issue in the main repository.*

@@ -289,6 +289,96 @@ Refer to the specific implementation folders for detailed usage:
 | Convergence | Slow but sure | Medium | Fast | Medium |
 | Parallelization | Limited | Excellent | Limited | Good |
 
+## Troubleshooting Common Issues
+
+### Problem: Algorithm Not Finding Good Solutions
+
+**Diagnosis checklist:**
+1. Is the initial temperature high enough to accept most moves initially?
+2. Is the cooling rate slow enough to allow equilibrium at each temperature?
+3. Is the neighborhood function generating diverse candidates?
+4. Is the minimum temperature low enough to allow fine-tuning?
+
+**Solutions:**
+- Increase T₀ until initial acceptance rate is ~80%
+- Decrease α closer to 0.99 for slow cooling
+- Increase iterations per temperature (L)
+- Implement adaptive temperature schedule
+
+### Problem: Algorithm is Too Slow
+
+**Possible causes:**
+1. Too many iterations per temperature
+2. Expensive fitness function evaluation
+3. Very slow cooling schedule
+4. Large neighborhood size
+
+**Solutions:**
+- Reduce L (iterations per temperature)
+- Cache fitness values when possible
+- Implement incremental fitness evaluation
+- Use candidate list strategies for neighborhoods
+
+### Problem: Solutions Vary Widely Across Runs
+
+**Strategies to improve consistency:**
+- Use multiple restarts and keep best solution
+- Implement reheating when stuck
+- Combine with local search for final refinement
+- Increase the number of iterations
+
+## Best Practices
+
+### For Continuous Optimization
+```
+1. Use Gaussian perturbation for neighbor generation
+2. Adaptive step size that decreases with temperature
+3. Consider problem-specific neighbor operators
+4. Apply bounds checking or reflection at boundaries
+```
+
+### For Combinatorial Optimization
+```
+1. Use swap, insert, or inversion moves
+2. Consider multiple move types with varying intensities
+3. Implement efficient incremental cost calculation
+4. Use appropriate tabu-like mechanisms to avoid cycling
+```
+
+### For Real-Time Applications
+```
+1. Set strict time limits instead of iteration counts
+2. Use geometric cooling with carefully chosen rate
+3. Implement any-time behavior (return best so far)
+4. Consider parallel independent runs
+```
+
+## Real-World Case Studies
+
+### Case Study 1: VLSI Chip Placement (Intel)
+**Problem**: Place 10,000+ gates on a chip minimizing wire length
+**SA Configuration**: T₀=10000, α=0.95, L=10×n
+**Results**: 
+- 20% improvement over greedy placement
+- Computation time: 2-4 hours for production chips
+- Used in commercial EDA tools
+
+### Case Study 2: Airline Crew Scheduling (Delta Airlines)
+**Problem**: Assign 5,000 crew members to 3,000 flights monthly
+**SA Configuration**: Custom cooling with restarts
+**Results**:
+- 8% reduction in crew costs
+- Better work-life balance scores
+- Compliance with FAA regulations
+
+### Case Study 3: Protein Structure Prediction
+**Problem**: Find minimum energy configuration of 100+ amino acids
+**SA Configuration**: Very slow cooling (α=0.999), millions of iterations
+**Results**:
+- Accurate secondary structure prediction
+- Complemented molecular dynamics simulations
+- Published in computational biology journals
+
 ---
 
 *For questions or contributions, please refer to the main repository documentation.*

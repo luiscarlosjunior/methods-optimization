@@ -501,6 +501,269 @@ tour = twoOptImprovement(tour, distMatrix);
 - [Main ACO Documentation](../README.md)
 - [C++ Implementation](../AntColonyOptimization-C/README.md)
 
+## Advanced MATLAB Topics
+
+### GPU Acceleration for ACO
+
+Use MATLAB's GPU computing capabilities:
+
+```matlab
+function [bestTour, bestCost] = gpuACO(distMatrix, nAnts, maxIter)
+    % Transfer to GPU
+    distGPU = gpuArray(distMatrix);
+    n = size(distGPU, 1);
+    
+    % Initialize pheromone on GPU
+    tau0 = 1 / (n * sum(distGPU(:)) / n^2);
+    pheromone = gpuArray(ones(n, n) * tau0);
+    
+    % Heuristic information
+    eta = 1 ./ distGPU;
+    eta(isinf(eta)) = 0;
+    
+    for iter = 1:maxIter
+        % Construct solutions in parallel on GPU
+        tours = constructToursGPU(pheromone, eta, nAnts);
+        costs = evaluateToursGPU(tours, distGPU);
+        
+        % Update pheromone on GPU
+        pheromone = updatePheromoneGPU(pheromone, tours, costs);
+    end
+    
+    % Transfer back to CPU
+    [bestCost, idx] = min(gather(costs));
+    bestTour = gather(tours(idx, :));
+end
+```
+
+### Real-Time Visualization Dashboard
+
+```matlab
+function dashboard = createACODashboard()
+    % Create figure with multiple visualization panels
+    dashboard.fig = figure('Position', [50 50 1400 900], ...
+                          'Name', 'ACO Optimization Dashboard');
+    
+    % Panel 1: Current best tour
+    dashboard.ax1 = subplot(2, 3, 1);
+    title('Best Tour Found');
+    
+    % Panel 2: Pheromone heatmap
+    dashboard.ax2 = subplot(2, 3, 2);
+    title('Pheromone Distribution');
+    
+    % Panel 3: Convergence curve
+    dashboard.ax3 = subplot(2, 3, 3);
+    title('Convergence');
+    xlabel('Iteration'); ylabel('Best Cost');
+    
+    % Panel 4: Ant activity heatmap
+    dashboard.ax4 = subplot(2, 3, 4);
+    title('Edge Usage Frequency');
+    
+    % Panel 5: Solution quality distribution
+    dashboard.ax5 = subplot(2, 3, 5);
+    title('Solution Quality Distribution');
+    
+    % Panel 6: Statistics table
+    dashboard.ax6 = subplot(2, 3, 6);
+    axis off;
+    title('Statistics');
+end
+
+function updateDashboard(dashboard, data, iter)
+    % Update tour visualization
+    axes(dashboard.ax1);
+    cla;
+    plotTour(data.cities, data.bestTour);
+    title(sprintf('Best Tour (Cost: %.2f)', data.bestCost));
+    
+    % Update pheromone heatmap
+    axes(dashboard.ax2);
+    imagesc(log(data.pheromone + 1e-10));
+    colorbar;
+    title('Pheromone (log scale)');
+    
+    % Update convergence
+    axes(dashboard.ax3);
+    if iter > 1
+        plot(1:iter, data.history(1:iter), 'b-', 'LineWidth', 2);
+        xlabel('Iteration'); ylabel('Best Cost');
+    end
+    
+    drawnow;
+end
+```
+
+### Hybrid ACO with Local Search
+
+```matlab
+function [bestTour, bestCost] = hybridACO(distMatrix, options)
+    % ACO with integrated 2-opt and 3-opt local search
+    
+    n = size(distMatrix, 1);
+    pheromone = initializePheromone(distMatrix, options);
+    eta = 1 ./ distMatrix;
+    
+    bestTour = [];
+    bestCost = inf;
+    history = zeros(options.maxIter, 1);
+    
+    for iter = 1:options.maxIter
+        % Construct ant solutions
+        tours = constructSolutions(pheromone, eta, options.nAnts, distMatrix);
+        costs = calculateCosts(tours, distMatrix);
+        
+        % Apply local search to best ants
+        nLocalSearch = min(5, options.nAnts);
+        [~, sortIdx] = sort(costs);
+        
+        for i = 1:nLocalSearch
+            antIdx = sortIdx(i);
+            
+            % 2-opt improvement
+            [tours(antIdx,:), costs(antIdx)] = twoOptImprove(
+                tours(antIdx,:), distMatrix);
+            
+            % 3-opt for very best ant
+            if i == 1 && options.use3opt
+                [tours(antIdx,:), costs(antIdx)] = threeOptImprove(
+                    tours(antIdx,:), distMatrix);
+            end
+        end
+        
+        % Update global best
+        [minCost, minIdx] = min(costs);
+        if minCost < bestCost
+            bestCost = minCost;
+            bestTour = tours(minIdx, :);
+        end
+        
+        % Update pheromone (ACS-style)
+        pheromone = (1 - options.rho) * pheromone;
+        
+        % Only best ant deposits
+        deposit = options.Q / bestCost;
+        for i = 1:n
+            j = mod(i, n) + 1;
+            city1 = bestTour(i);
+            city2 = bestTour(j);
+            pheromone(city1, city2) = pheromone(city1, city2) + deposit;
+            pheromone(city2, city1) = pheromone(city2, city1) + deposit;
+        end
+        
+        % Apply MMAS bounds
+        tauMax = 1 / (options.rho * bestCost);
+        tauMin = tauMax / (2 * n);
+        pheromone = max(tauMin, min(tauMax, pheromone));
+        
+        history(iter) = bestCost;
+        
+        if mod(iter, 10) == 0
+            fprintf('Iter %d: Best = %.2f\n', iter, bestCost);
+        end
+    end
+end
+
+function [tour, cost] = twoOptImprove(tour, distMatrix)
+    n = length(tour);
+    improved = true;
+    
+    while improved
+        improved = false;
+        for i = 1:n-2
+            for j = i+2:n
+                % Calculate improvement
+                if j == n
+                    jNext = 1;
+                else
+                    jNext = j + 1;
+                end
+                
+                d1 = distMatrix(tour(i), tour(i+1)) + ...
+                     distMatrix(tour(j), tour(jNext));
+                d2 = distMatrix(tour(i), tour(j)) + ...
+                     distMatrix(tour(i+1), tour(jNext));
+                
+                if d2 < d1 - 1e-10
+                    % Reverse segment
+                    tour(i+1:j) = tour(j:-1:i+1);
+                    improved = true;
+                end
+            end
+        end
+    end
+    
+    cost = calculateTourCost(tour, distMatrix);
+end
+```
+
+### TSPLIB Instance Loader
+
+```matlab
+function [coords, distMatrix, optimalCost] = loadTSPLIB(filename)
+    % Load standard TSPLIB format files
+    
+    fid = fopen(filename, 'r');
+    if fid == -1
+        error('Cannot open file: %s', filename);
+    end
+    
+    % Parse header
+    dimension = 0;
+    edgeWeightType = '';
+    
+    while true
+        line = fgetl(fid);
+        if contains(line, 'DIMENSION')
+            dimension = sscanf(line, 'DIMENSION : %d');
+        elseif contains(line, 'EDGE_WEIGHT_TYPE')
+            edgeWeightType = strtrim(extractAfter(line, ':'));
+        elseif contains(line, 'NODE_COORD_SECTION')
+            break;
+        end
+    end
+    
+    % Read coordinates
+    coords = zeros(dimension, 2);
+    for i = 1:dimension
+        line = fgetl(fid);
+        data = sscanf(line, '%d %f %f');
+        coords(i, :) = data(2:3)';
+    end
+    
+    fclose(fid);
+    
+    % Calculate distance matrix
+    if strcmp(edgeWeightType, 'EUC_2D')
+        distMatrix = pdist2(coords, coords);
+    else
+        distMatrix = pdist2(coords, coords);  % Default to Euclidean
+    end
+    
+    % Known optimal values for common instances
+    optimalValues = containers.Map(...
+        {'berlin52', 'eil51', 'kroA100', 'att48'}, ...
+        [7542, 426, 21282, 10628]);
+    
+    [~, name] = fileparts(filename);
+    if isKey(optimalValues, name)
+        optimalCost = optimalValues(name);
+    else
+        optimalCost = NaN;
+    end
+    
+    fprintf('Loaded %s: %d cities, optimal = %.0f\n', ...
+            name, dimension, optimalCost);
+end
+
+% Usage:
+% [coords, dist, opt] = loadTSPLIB('berlin52.tsp');
+% [tour, cost] = hybridACO(dist, options);
+% gap = (cost - opt) / opt * 100;
+% fprintf('Gap from optimal: %.2f%%\n', gap);
+```
+
 ---
 
 *For questions or contributions, please refer to the main repository.*

@@ -1378,4 +1378,132 @@ Refer to the specific implementation folders for detailed usage instructions:
 
 ---
 
+## Appendix: Quick Reference Guide
+
+### GA Terminology Cheat Sheet
+
+| Term | Definition |
+|------|------------|
+| **Chromosome** | A candidate solution encoded as a data structure |
+| **Gene** | A single element or position in a chromosome |
+| **Allele** | The value of a gene (e.g., 0 or 1 for binary) |
+| **Locus** | The position of a gene in the chromosome |
+| **Phenotype** | The decoded/interpreted solution |
+| **Genotype** | The encoded representation of a solution |
+| **Fitness** | A measure of solution quality |
+| **Population** | A collection of chromosomes |
+| **Generation** | One iteration of the evolutionary process |
+| **Schema** | A template describing a subset of chromosomes |
+| **Building Block** | A short, low-order, high-fitness schema |
+| **Selective Pressure** | The degree to which fitter individuals are favored |
+| **Genetic Drift** | Random changes in allele frequencies |
+| **Epistasis** | Gene interactions affecting fitness |
+
+### Parameter Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PARAMETER CHEAT SHEET                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Population Size:                                            │
+│  • Simple problems: 20-50                                    │
+│  • Standard problems: 50-100                                 │
+│  • Complex problems: 100-500                                 │
+│  • Rule of thumb: 10× number of variables                   │
+│                                                              │
+│  Crossover Rate:                                             │
+│  • Low: 0.5-0.7 (more exploitation)                         │
+│  • Standard: 0.7-0.9                                         │
+│  • High: 0.9-1.0 (more exploration)                         │
+│                                                              │
+│  Mutation Rate:                                              │
+│  • Binary: 1/L where L = chromosome length                  │
+│  • Real-valued: 0.01-0.1 per variable                       │
+│  • Adaptive: start high, decrease over time                  │
+│                                                              │
+│  Selection:                                                  │
+│  • Tournament size 2: weak pressure                         │
+│  • Tournament size 3-5: moderate pressure                   │
+│  • Tournament size 7+: strong pressure                      │
+│                                                              │
+│  Elitism:                                                    │
+│  • 1-2 individuals for small populations                    │
+│  • 2-5% for large populations                               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Algorithm Selection Flowchart
+
+```
+                    ┌─────────────────────┐
+                    │   Define Problem    │
+                    └──────────┬──────────┘
+                               ▼
+              ┌────────────────┴────────────────┐
+              │     Variable Type?              │
+              └────────────────┬────────────────┘
+                    ┌──────────┼──────────┐
+                    ▼          ▼          ▼
+               ┌────────┐ ┌────────┐ ┌────────┐
+               │Binary  │ │Real    │ │Mixed   │
+               │/Discrete│ │-valued │ │       │
+               └────┬───┘ └────┬───┘ └────┬───┘
+                    │          │          │
+                    ▼          ▼          ▼
+             Use Binary   Use Real-   Use Hybrid
+             GA with      valued GA   encoding
+             bit-flip     with        
+             mutation     Gaussian    
+                         mutation    
+                               
+                    ┌─────────────────────┐
+                    │  Constraint Type?   │
+                    └──────────┬──────────┘
+                    ┌──────────┼──────────┐
+                    ▼          ▼          ▼
+              ┌──────────┐┌──────────┐┌──────────┐
+              │No        ││Simple    ││Complex   │
+              │Constraints││Bounds   ││Constraints│
+              └────┬─────┘└────┬─────┘└────┬─────┘
+                   │           │           │
+                   ▼           ▼           ▼
+              Standard    Bound       Penalty
+              GA          checking    function
+                                     or repair
+```
+
+### Common Mistakes to Avoid
+
+1. **❌ Using too small a population**
+   - Leads to premature convergence
+   - ✅ Start with at least 50-100 individuals
+
+2. **❌ Ignoring elitism**
+   - Best solutions can be lost
+   - ✅ Always preserve 1-5 best individuals
+
+3. **❌ Fixed parameters throughout run**
+   - May not balance exploration/exploitation
+   - ✅ Consider adaptive parameters
+
+4. **❌ Not validating with benchmarks first**
+   - Hard to debug on complex problems
+   - ✅ Test on Sphere/Rosenbrock before real problems
+
+5. **❌ Running only once**
+   - GA is stochastic, results vary
+   - ✅ Run at least 30 times and report statistics
+
+6. **❌ Ignoring constraint violations**
+   - May find infeasible "optimal" solutions
+   - ✅ Implement proper constraint handling
+
+7. **❌ Poor fitness function design**
+   - Flat landscapes, deceptive functions
+   - ✅ Ensure fitness provides gradient toward good solutions
+
+---
+
 *For questions or contributions, please refer to the main repository documentation.*

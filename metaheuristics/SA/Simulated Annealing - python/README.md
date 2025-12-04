@@ -428,6 +428,203 @@ plt.show()
 - [Main SA Documentation](../README.md)
 - [C++ Implementation](../Simulated%20Annealing%20-%20CPP/README.md)
 
+## Advanced Topics
+
+### Parallel Simulated Annealing
+
+Python supports multiple parallelization strategies for SA:
+
+```python
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
+def parallel_sa_runs(n_runs=10):
+    """
+    Run multiple independent SA instances in parallel
+    and return the best result across all runs.
+    """
+    with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
+        futures = [executor.submit(simulated_annealing_himmelblau) 
+                   for _ in range(n_runs)]
+        results = [f.result() for f in futures]
+    
+    # Find best result across all parallel runs
+    best_result = min(results, key=lambda x: x[2])  # x[2] is cost
+    return best_result
+
+# Run 10 parallel SA instances
+best_x, best_y, best_cost = parallel_sa_runs(10)
+print(f"Best across 10 runs: ({best_x:.6f}, {best_y:.6f}) = {best_cost:.6f}")
+```
+
+### Adaptive Cooling Schedules
+
+Implement an adaptive cooling schedule that adjusts based on acceptance rate:
+
+```python
+def adaptive_sa(objective_func, initial_solution, bounds):
+    """
+    SA with adaptive temperature control based on acceptance rate.
+    Target acceptance rate decreases from 80% to 1% during search.
+    """
+    x = initial_solution
+    current_cost = objective_func(x)
+    best_x, best_cost = x, current_cost
+    
+    T = 100.0
+    T_min = 0.01
+    target_acceptance = 0.8
+    acceptance_rate = 1.0
+    history = []
+    
+    while T > T_min:
+        accepted = 0
+        attempted = 0
+        
+        for _ in range(100):
+            # Generate neighbor
+            x_new = x + np.random.uniform(-1, 1, len(x)) * T / 100
+            x_new = np.clip(x_new, bounds[0], bounds[1])
+            new_cost = objective_func(x_new)
+            
+            attempted += 1
+            delta = new_cost - current_cost
+            
+            if delta < 0 or np.random.random() < np.exp(-delta / T):
+                x = x_new
+                current_cost = new_cost
+                accepted += 1
+                
+                if current_cost < best_cost:
+                    best_x, best_cost = x.copy(), current_cost
+        
+        # Calculate actual acceptance rate
+        acceptance_rate = accepted / attempted if attempted > 0 else 0
+        
+        # Adaptive cooling
+        if acceptance_rate > target_acceptance:
+            T *= 0.9  # Cool faster if accepting too many
+        else:
+            T *= 0.98  # Cool slower if accepting too few
+        
+        # Decrease target acceptance over time
+        target_acceptance = max(0.01, target_acceptance * 0.995)
+        
+        history.append(best_cost)
+    
+    return best_x, best_cost, history
+```
+
+### Integration with Machine Learning
+
+Use SA to optimize machine learning hyperparameters:
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.datasets import load_iris
+
+def ml_hyperparameter_optimization():
+    """
+    Use SA to optimize Random Forest hyperparameters.
+    """
+    # Load dataset
+    X, y = load_iris(return_X_y=True)
+    
+    def rf_objective(params):
+        """
+        Negative cross-validation score (we minimize).
+        params: [n_estimators, max_depth, min_samples_split]
+        """
+        n_estimators = int(max(10, params[0]))
+        max_depth = int(max(2, params[1]))
+        min_samples_split = int(max(2, params[2]))
+        
+        rf = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            random_state=42
+        )
+        
+        score = cross_val_score(rf, X, y, cv=5).mean()
+        return -score  # Negative because SA minimizes
+    
+    # Initial hyperparameters
+    initial_params = np.array([100.0, 10.0, 5.0])
+    bounds = (np.array([10, 2, 2]), np.array([500, 50, 20]))
+    
+    # Optimize
+    best_params, best_score, _ = adaptive_sa(
+        rf_objective, initial_params, bounds
+    )
+    
+    print(f"Best hyperparameters:")
+    print(f"  n_estimators: {int(best_params[0])}")
+    print(f"  max_depth: {int(best_params[1])}")
+    print(f"  min_samples_split: {int(best_params[2])}")
+    print(f"  CV Score: {-best_score:.4f}")
+    
+    return best_params
+
+# Run hyperparameter optimization
+ml_hyperparameter_optimization()
+```
+
+## Extending the Implementation
+
+### Adding Custom Objective Functions
+
+To add your own optimization problem:
+
+```python
+def custom_objective(x):
+    """
+    Define your custom objective function here.
+    
+    Args:
+        x: numpy array or list of decision variables
+    
+    Returns:
+        float: Objective value to minimize
+    """
+    # Example: Rastrigin function
+    A = 10
+    n = len(x)
+    return A * n + sum(xi**2 - A * np.cos(2 * np.pi * xi) for xi in x)
+
+# Use with the SA framework
+# initial_solution = np.random.uniform(-5.12, 5.12, size=10)
+# best_x, best_cost, history = simulated_annealing(custom_objective, initial_solution)
+```
+
+### Adding Custom Neighborhood Functions
+
+```python
+def custom_neighbor(x, T):
+    """
+    Custom neighborhood function with temperature-dependent step size.
+    
+    Args:
+        x: Current solution
+        T: Current temperature
+    
+    Returns:
+        New candidate solution
+    """
+    # Step size decreases with temperature
+    step_size = 0.1 + 0.9 * (T / 100.0)
+    
+    # Choose random dimension to perturb
+    dim = np.random.randint(len(x))
+    
+    # Gaussian perturbation
+    x_new = x.copy()
+    x_new[dim] += np.random.normal(0, step_size)
+    
+    return x_new
+```
+
 ---
 
 *For questions or bug reports, please refer to the main repository.*
