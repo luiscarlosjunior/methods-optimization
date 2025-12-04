@@ -574,6 +574,316 @@ public class GATests
 - [Python Implementation](../GA-py/README.md)
 - [MATLAB Implementation](../GA-matlab/README.md)
 
+## Advanced C# Topics
+
+### Dependency Injection for Testability
+
+Use dependency injection for flexible and testable code:
+
+```csharp
+public interface ISelectionOperator
+{
+    Chromosome Select(Population population);
+}
+
+public interface ICrossoverOperator
+{
+    (Chromosome, Chromosome) Crossover(Chromosome parent1, Chromosome parent2);
+}
+
+public interface IMutationOperator
+{
+    Chromosome Mutate(Chromosome chromosome);
+}
+
+public class GeneticAlgorithmDI
+{
+    private readonly ISelectionOperator _selection;
+    private readonly ICrossoverOperator _crossover;
+    private readonly IMutationOperator _mutation;
+    private readonly IFitnessEvaluator _fitness;
+    
+    public GeneticAlgorithmDI(
+        ISelectionOperator selection,
+        ICrossoverOperator crossover,
+        IMutationOperator mutation,
+        IFitnessEvaluator fitness)
+    {
+        _selection = selection;
+        _crossover = crossover;
+        _mutation = mutation;
+        _fitness = fitness;
+    }
+    
+    public GAResult Run(GAConfiguration config)
+    {
+        var population = InitializePopulation(config);
+        
+        for (int gen = 0; gen < config.MaxGenerations; gen++)
+        {
+            EvaluatePopulation(population);
+            var newPopulation = CreateNewGeneration(population, config);
+            population = newPopulation;
+        }
+        
+        return new GAResult(population.BestIndividual);
+    }
+}
+```
+
+### Async/Await for Parallel Evaluation
+
+Modern async patterns for non-blocking fitness evaluation:
+
+```csharp
+public class AsyncGeneticAlgorithm
+{
+    private readonly Func<double[], Task<double>> _asyncFitness;
+    
+    public AsyncGeneticAlgorithm(Func<double[], Task<double>> fitnessFunc)
+    {
+        _asyncFitness = fitnessFunc;
+    }
+    
+    public async Task<GAResult> RunAsync(CancellationToken cancellationToken = default)
+    {
+        var population = InitializePopulation();
+        
+        for (int gen = 0; gen < _config.MaxGenerations; gen++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            // Evaluate all fitness values in parallel
+            var evaluationTasks = population.Individuals
+                .Select(ind => EvaluateAsync(ind, cancellationToken))
+                .ToList();
+            
+            await Task.WhenAll(evaluationTasks);
+            
+            // Progress reporting
+            OnGenerationCompleted?.Invoke(this, new GenerationEventArgs(gen, GetBest()));
+            
+            // Evolve
+            population = await EvolveAsync(population, cancellationToken);
+        }
+        
+        return new GAResult(population.BestIndividual);
+    }
+    
+    private async Task EvaluateAsync(Individual ind, CancellationToken ct)
+    {
+        ind.Fitness = await _asyncFitness(ind.Genes);
+    }
+}
+```
+
+### Generic Chromosome Types
+
+Support different encoding types with generics:
+
+```csharp
+public interface IChromosome<T>
+{
+    T[] Genes { get; set; }
+    double Fitness { get; set; }
+    IChromosome<T> Clone();
+}
+
+public class BinaryChromosome : IChromosome<bool>
+{
+    public bool[] Genes { get; set; }
+    public double Fitness { get; set; }
+    
+    public BinaryChromosome(int length)
+    {
+        Genes = new bool[length];
+        var random = new Random();
+        for (int i = 0; i < length; i++)
+            Genes[i] = random.NextDouble() < 0.5;
+    }
+    
+    public IChromosome<bool> Clone() => new BinaryChromosome(Genes.Length)
+    {
+        Genes = (bool[])Genes.Clone(),
+        Fitness = this.Fitness
+    };
+}
+
+public class RealChromosome : IChromosome<double>
+{
+    public double[] Genes { get; set; }
+    public double Fitness { get; set; }
+    
+    public IChromosome<double> Clone() => new RealChromosome
+    {
+        Genes = (double[])Genes.Clone(),
+        Fitness = this.Fitness
+    };
+}
+
+public class PermutationChromosome : IChromosome<int>
+{
+    public int[] Genes { get; set; }  // Represents a permutation
+    public double Fitness { get; set; }
+    
+    public PermutationChromosome(int length)
+    {
+        Genes = Enumerable.Range(0, length).OrderBy(x => Guid.NewGuid()).ToArray();
+    }
+    
+    public IChromosome<int> Clone() => new PermutationChromosome(Genes.Length)
+    {
+        Genes = (int[])Genes.Clone(),
+        Fitness = this.Fitness
+    };
+}
+```
+
+### Event-Driven Architecture
+
+Implement rich event support for monitoring:
+
+```csharp
+public class ObservableGA
+{
+    public event EventHandler<GenerationEventArgs> GenerationCompleted;
+    public event EventHandler<NewBestEventArgs> NewBestFound;
+    public event EventHandler<ConvergenceEventArgs> Converged;
+    public event EventHandler<PopulationEventArgs> PopulationInitialized;
+    
+    protected virtual void OnGenerationCompleted(int generation, double bestFitness)
+    {
+        GenerationCompleted?.Invoke(this, 
+            new GenerationEventArgs(generation, bestFitness));
+    }
+    
+    protected virtual void OnNewBestFound(Chromosome best, int generation)
+    {
+        NewBestFound?.Invoke(this, 
+            new NewBestEventArgs(best, generation));
+    }
+    
+    protected virtual void OnConverged(int generation, string reason)
+    {
+        Converged?.Invoke(this, 
+            new ConvergenceEventArgs(generation, reason));
+    }
+}
+
+// Usage
+var ga = new ObservableGA(config);
+ga.GenerationCompleted += (s, e) => 
+    Console.WriteLine($"Gen {e.Generation}: Best = {e.BestFitness:F6}");
+ga.NewBestFound += (s, e) => 
+    Console.WriteLine($"New best at gen {e.Generation}!");
+ga.Converged += (s, e) => 
+    Console.WriteLine($"Converged at gen {e.Generation}: {e.Reason}");
+```
+
+### Serialization for Checkpointing
+
+Save and restore GA state:
+
+```csharp
+using System.Text.Json;
+
+public class GAState
+{
+    public double[][] Population { get; set; }
+    public double[] Fitness { get; set; }
+    public double[] BestSolution { get; set; }
+    public double BestFitness { get; set; }
+    public int Generation { get; set; }
+    public List<double> History { get; set; }
+    public int RandomSeed { get; set; }
+}
+
+public static class GASerializer
+{
+    public static void SaveState(GeneticAlgorithm ga, string filename)
+    {
+        var state = new GAState
+        {
+            Population = ga.Population.Select(c => c.Genes).ToArray(),
+            Fitness = ga.Population.Select(c => c.Fitness).ToArray(),
+            BestSolution = ga.BestChromosome.Genes,
+            BestFitness = ga.BestChromosome.Fitness,
+            Generation = ga.CurrentGeneration,
+            History = ga.FitnessHistory.ToList()
+        };
+        
+        var json = JsonSerializer.Serialize(state, new JsonSerializerOptions 
+        { 
+            WriteIndented = true 
+        });
+        File.WriteAllText(filename, json);
+    }
+    
+    public static void LoadState(GeneticAlgorithm ga, string filename)
+    {
+        var json = File.ReadAllText(filename);
+        var state = JsonSerializer.Deserialize<GAState>(json);
+        
+        ga.RestoreFromState(state);
+    }
+}
+```
+
+### Benchmarking Framework
+
+Built-in performance measurement:
+
+```csharp
+using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Running;
+
+[MemoryDiagnoser]
+[SimpleJob(RuntimeMoniker.Net60)]
+public class GABenchmarks
+{
+    private GAConfiguration _config;
+    
+    [GlobalSetup]
+    public void Setup()
+    {
+        _config = new GAConfiguration
+        {
+            PopulationSize = 100,
+            MaxGenerations = 100,
+            Dimensions = 10
+        };
+    }
+    
+    [Benchmark(Baseline = true)]
+    public GAResult StandardGA()
+    {
+        var ga = new GeneticAlgorithm(_config, x => x.Sum(v => v * v));
+        return ga.Run();
+    }
+    
+    [Benchmark]
+    public GAResult ParallelGA()
+    {
+        var ga = new ParallelGeneticAlgorithm(_config, x => x.Sum(v => v * v));
+        return ga.Run();
+    }
+    
+    [Benchmark]
+    public async Task<GAResult> AsyncGA()
+    {
+        var ga = new AsyncGeneticAlgorithm(_config, async x => 
+        {
+            await Task.Delay(1);  // Simulate expensive evaluation
+            return x.Sum(v => v * v);
+        });
+        return await ga.RunAsync();
+    }
+}
+
+// Run with: dotnet run -c Release
+// BenchmarkRunner.Run<GABenchmarks>();
+```
+
 ---
 
 *For questions or contributions, please refer to the main repository.*

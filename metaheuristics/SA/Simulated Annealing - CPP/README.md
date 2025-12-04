@@ -527,6 +527,217 @@ std::mt19937 gen(42);  // Fixed seed for reproducibility
 - [Main SA Documentation](../README.md)
 - [Python Implementation](../Simulated%20Annealing%20-%20python/README.md)
 
+## Advanced C++ Implementation Topics
+
+### Template-Based Design
+
+For maximum flexibility, consider using templates:
+
+```cpp
+template<typename Solution, typename Cost = double>
+class SimulatedAnnealing {
+public:
+    using ObjectiveFunc = std::function<Cost(const Solution&)>;
+    using NeighborFunc = std::function<Solution(const Solution&, double)>;
+    
+    SimulatedAnnealing(
+        ObjectiveFunc objective,
+        NeighborFunc neighbor,
+        SAConfig config
+    ) : objective_(objective), neighbor_(neighbor), config_(config) {}
+    
+    Solution solve(const Solution& initial) {
+        Solution current = initial;
+        Solution best = current;
+        Cost currentCost = objective_(current);
+        Cost bestCost = currentCost;
+        
+        double T = config_.T0;
+        std::mt19937 gen(config_.seed);
+        std::uniform_real_distribution<> dis(0.0, 1.0);
+        
+        while (T > config_.Tmin) {
+            for (int iter = 0; iter < config_.iterPerTemp; ++iter) {
+                Solution neighbor = neighbor_(current, T);
+                Cost neighborCost = objective_(neighbor);
+                
+                Cost delta = neighborCost - currentCost;
+                
+                if (delta < 0 || dis(gen) < exp(-delta / T)) {
+                    current = std::move(neighbor);
+                    currentCost = neighborCost;
+                    
+                    if (currentCost < bestCost) {
+                        best = current;
+                        bestCost = currentCost;
+                    }
+                }
+            }
+            T *= config_.alpha;
+        }
+        
+        return best;
+    }
+    
+private:
+    ObjectiveFunc objective_;
+    NeighborFunc neighbor_;
+    SAConfig config_;
+};
+```
+
+### Multi-Threading with OpenMP
+
+Parallelize SA for better performance:
+
+```cpp
+#include <omp.h>
+#include <vector>
+#include <algorithm>
+
+struct SAResult {
+    std::vector<double> solution;
+    double cost;
+};
+
+SAResult parallelSA(int numThreads = 4) {
+    std::vector<SAResult> results(numThreads);
+    
+    #pragma omp parallel num_threads(numThreads)
+    {
+        int tid = omp_get_thread_num();
+        unsigned int seed = 42 + tid;
+        
+        // Each thread runs independent SA
+        results[tid] = runSingleSA(seed);
+    }
+    
+    // Return best result across all threads
+    return *std::min_element(results.begin(), results.end(),
+        [](const SAResult& a, const SAResult& b) {
+            return a.cost < b.cost;
+        });
+}
+```
+
+### SIMD Optimization
+
+Use SIMD instructions for vectorized operations:
+
+```cpp
+#include <immintrin.h>
+
+// Vectorized Euclidean distance calculation
+double vectorizedDistance(const double* a, const double* b, int n) {
+    __m256d sum = _mm256_setzero_pd();
+    
+    for (int i = 0; i < n; i += 4) {
+        __m256d va = _mm256_loadu_pd(a + i);
+        __m256d vb = _mm256_loadu_pd(b + i);
+        __m256d diff = _mm256_sub_pd(va, vb);
+        sum = _mm256_fmadd_pd(diff, diff, sum);
+    }
+    
+    // Horizontal sum
+    double result[4];
+    _mm256_storeu_pd(result, sum);
+    return sqrt(result[0] + result[1] + result[2] + result[3]);
+}
+```
+
+### Memory Pool for Solutions
+
+Efficient memory management for high-frequency allocations:
+
+```cpp
+template<size_t SolutionSize>
+class SolutionPool {
+public:
+    SolutionPool(size_t poolSize) : pool_(poolSize) {
+        for (auto& solution : pool_) {
+            solution.resize(SolutionSize);
+            freeList_.push(&solution);
+        }
+    }
+    
+    std::vector<double>* acquire() {
+        if (freeList_.empty()) return nullptr;
+        auto* solution = freeList_.front();
+        freeList_.pop();
+        return solution;
+    }
+    
+    void release(std::vector<double>* solution) {
+        freeList_.push(solution);
+    }
+    
+private:
+    std::vector<std::vector<double>> pool_;
+    std::queue<std::vector<double>*> freeList_;
+};
+```
+
+## Compiler Optimization Flags
+
+For best performance, use appropriate compiler flags:
+
+```bash
+# GCC
+g++ -std=c++17 -O3 -march=native -flto -fopenmp SimulatedAnnealing.cpp -o sa
+
+# Clang
+clang++ -std=c++17 -O3 -march=native -flto -fopenmp SimulatedAnnealing.cpp -o sa
+
+# Intel compiler
+icpc -std=c++17 -O3 -xHost -ipo -qopenmp SimulatedAnnealing.cpp -o sa
+```
+
+## Profiling and Performance Analysis
+
+### Using gprof
+
+```bash
+# Compile with profiling
+g++ -std=c++11 -pg -O2 SimulatedAnnealing.cpp -o sa
+
+# Run
+./sa
+
+# Analyze
+gprof sa gmon.out > profile.txt
+```
+
+### Using perf
+
+```bash
+# Profile
+perf record ./sa
+
+# Analyze
+perf report
+```
+
+## Error Handling Best Practices
+
+```cpp
+class SAException : public std::exception {
+public:
+    explicit SAException(const std::string& msg) : message_(msg) {}
+    const char* what() const noexcept override { return message_.c_str(); }
+private:
+    std::string message_;
+};
+
+void validateConfig(const SAConfig& config) {
+    if (config.T0 <= 0) 
+        throw SAException("Initial temperature must be positive");
+    if (config.alpha <= 0 || config.alpha >= 1)
+        throw SAException("Cooling rate must be in (0, 1)");
+    if (config.Tmin <= 0 || config.Tmin >= config.T0)
+        throw SAException("Minimum temperature must be positive and less than T0");
+}
+```
+
 ---
 
 *For questions or contributions, please refer to the main repository.*

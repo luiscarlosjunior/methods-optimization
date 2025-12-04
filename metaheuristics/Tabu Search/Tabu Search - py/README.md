@@ -477,6 +477,272 @@ def adaptive_tenure(iteration, improvement_count):
 - [Main Tabu Search Documentation](../README.md)
 - [Alternative Python Implementation](../Tabu%20Search%20-%20py2/README.md)
 
+## Advanced Implementation Topics
+
+### Efficient Data Structures
+
+Use appropriate data structures for performance:
+
+```python
+from collections import OrderedDict
+
+class EfficientTabuList:
+    """
+    Hash-based tabu list with O(1) lookup and automatic expiration.
+    """
+    
+    def __init__(self, tenure):
+        self.tenure = tenure
+        self.tabu_dict = OrderedDict()
+        self.current_iteration = 0
+    
+    def add(self, move):
+        """Add move with expiration iteration."""
+        self.tabu_dict[move] = self.current_iteration + self.tenure
+        self._cleanup()
+    
+    def is_tabu(self, move):
+        """O(1) lookup."""
+        if move not in self.tabu_dict:
+            return False
+        return self.tabu_dict[move] > self.current_iteration
+    
+    def _cleanup(self):
+        """Remove expired entries."""
+        expired = [k for k, v in self.tabu_dict.items() 
+                   if v <= self.current_iteration]
+        for k in expired:
+            del self.tabu_dict[k]
+    
+    def step(self):
+        """Advance iteration counter."""
+        self.current_iteration += 1
+```
+
+### Multi-Threaded Neighborhood Evaluation
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+import numpy as np
+
+class ParallelTabuSearch:
+    """
+    Tabu Search with parallel neighborhood evaluation.
+    """
+    
+    def __init__(self, objective_func, neighbor_func, 
+                 tabu_tenure=10, n_workers=4):
+        self.objective = objective_func
+        self.neighbor_func = neighbor_func
+        self.tabu = EfficientTabuList(tabu_tenure)
+        self.n_workers = n_workers
+    
+    def evaluate_neighbors_parallel(self, current):
+        """Evaluate all neighbors in parallel."""
+        neighbors = self.neighbor_func(current)
+        
+        with ThreadPoolExecutor(max_workers=self.n_workers) as executor:
+            # Submit all evaluations
+            futures = {
+                executor.submit(self.objective, n): (n, m) 
+                for n, m in neighbors
+            }
+            
+            # Collect results
+            results = []
+            for future in futures:
+                neighbor, move = futures[future]
+                cost = future.result()
+                results.append((neighbor, move, cost))
+        
+        return results
+    
+    def search(self, initial, max_iterations=1000):
+        current = initial
+        best = initial.copy()
+        best_cost = self.objective(initial)
+        
+        for _ in range(max_iterations):
+            # Evaluate neighbors in parallel
+            evaluated = self.evaluate_neighbors_parallel(current)
+            
+            # Find best non-tabu neighbor
+            candidates = [
+                (n, m, c) for n, m, c in evaluated
+                if not self.tabu.is_tabu(m) or c < best_cost  # Aspiration
+            ]
+            
+            if candidates:
+                best_neighbor, best_move, neighbor_cost = min(
+                    candidates, key=lambda x: x[2]
+                )
+                
+                current = best_neighbor
+                self.tabu.add(best_move)
+                
+                if neighbor_cost < best_cost:
+                    best = best_neighbor.copy()
+                    best_cost = neighbor_cost
+            
+            self.tabu.step()
+        
+        return best, best_cost
+```
+
+### Visualization Utilities
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_search_trajectory(history, title="Tabu Search Progress"):
+    """
+    Plot the search trajectory showing cost over iterations.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    
+    # 1. Cost over iterations
+    ax1 = axes[0, 0]
+    ax1.plot(history['costs'], 'b-', linewidth=1, alpha=0.7, label='Current')
+    ax1.plot(history['best_costs'], 'r-', linewidth=2, label='Best')
+    ax1.set_xlabel('Iteration')
+    ax1.set_ylabel('Cost')
+    ax1.set_title('Cost Evolution')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # 2. Improvement events
+    ax2 = axes[0, 1]
+    improvements = np.diff(history['best_costs'])
+    improvement_iters = np.where(improvements < 0)[0]
+    ax2.stem(improvement_iters, -improvements[improvement_iters])
+    ax2.set_xlabel('Iteration')
+    ax2.set_ylabel('Improvement')
+    ax2.set_title('Improvement Events')
+    ax2.grid(True, alpha=0.3)
+    
+    # 3. Tabu list size
+    ax3 = axes[1, 0]
+    ax3.plot(history['tabu_sizes'], 'g-', linewidth=1)
+    ax3.set_xlabel('Iteration')
+    ax3.set_ylabel('Tabu List Size')
+    ax3.set_title('Tabu List Size Over Time')
+    ax3.grid(True, alpha=0.3)
+    
+    # 4. Move acceptance rate
+    ax4 = axes[1, 1]
+    window = 50
+    acceptance = np.convolve(
+        history['accepted'], 
+        np.ones(window)/window, 
+        mode='valid'
+    )
+    ax4.plot(acceptance, 'm-', linewidth=1)
+    ax4.set_xlabel('Iteration')
+    ax4.set_ylabel('Acceptance Rate (moving avg)')
+    ax4.set_title(f'Move Acceptance Rate (window={window})')
+    ax4.grid(True, alpha=0.3)
+    
+    plt.suptitle(title, fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    return fig
+
+def visualize_tsp_solution(cities, tour, title="TSP Solution"):
+    """
+    Visualize a TSP tour on a 2D plane.
+    """
+    plt.figure(figsize=(10, 8))
+    
+    # Plot cities
+    x = [cities[i][0] for i in range(len(cities))]
+    y = [cities[i][1] for i in range(len(cities))]
+    plt.scatter(x, y, c='red', s=100, zorder=5)
+    
+    # Label cities
+    for i, (xi, yi) in enumerate(cities):
+        plt.annotate(str(i), (xi, yi), xytext=(5, 5), 
+                    textcoords='offset points', fontsize=10)
+    
+    # Draw tour
+    for i in range(len(tour)):
+        j = (i + 1) % len(tour)
+        city1, city2 = tour[i], tour[j]
+        plt.plot([cities[city1][0], cities[city2][0]], 
+                [cities[city1][1], cities[city2][1]], 
+                'b-', linewidth=2, alpha=0.7)
+    
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title(title)
+    plt.grid(True, alpha=0.3)
+    plt.axis('equal')
+    plt.show()
+```
+
+### Integration with Optimization Libraries
+
+```python
+from scipy.optimize import OptimizeResult
+
+def tabu_search_scipy_compatible(fun, x0, args=(), 
+                                  tabu_tenure=10, 
+                                  max_iterations=1000,
+                                  neighbor_size=0.5):
+    """
+    Tabu Search with scipy.optimize compatible interface.
+    
+    Parameters
+    ----------
+    fun : callable
+        Objective function to minimize
+    x0 : array-like
+        Initial solution
+    args : tuple
+        Extra arguments passed to fun
+    tabu_tenure : int
+        Number of iterations a move stays tabu
+    max_iterations : int
+        Maximum iterations
+    neighbor_size : float
+        Size of neighborhood perturbation
+    
+    Returns
+    -------
+    result : OptimizeResult
+        Object containing optimization results
+    """
+    x0 = np.asarray(x0)
+    
+    def objective(x):
+        return fun(x, *args)
+    
+    def generate_neighbors(x):
+        neighbors = []
+        for i in range(len(x)):
+            for delta in [-neighbor_size, neighbor_size]:
+                neighbor = x.copy()
+                neighbor[i] += delta
+                move = (i, delta)
+                neighbors.append((neighbor, move))
+        return neighbors
+    
+    ts = ParallelTabuSearch(objective, generate_neighbors, tabu_tenure)
+    best, best_cost = ts.search(x0, max_iterations)
+    
+    return OptimizeResult(
+        x=best,
+        fun=best_cost,
+        success=True,
+        message="Tabu Search completed",
+        nit=max_iterations
+    )
+
+# Usage:
+# from scipy.optimize import rosen
+# result = tabu_search_scipy_compatible(rosen, [0, 0, 0])
+# print(result.x, result.fun)
+```
+
 ---
 
 *For questions or contributions, please refer to the main repository.*

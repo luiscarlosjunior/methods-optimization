@@ -449,6 +449,246 @@ population(1,:) = knownGoodSolution;
 - [Python Implementation](../GA-py/README.md)
 - [C# Implementation](../GA-c/README.md)
 
+## Advanced MATLAB Topics
+
+### Vectorized Operations for Speed
+
+Maximize MATLAB's vectorization capabilities:
+
+```matlab
+% Vectorized fitness evaluation for population
+function fitness = evaluatePopulationVectorized(population, fitnessFcn)
+    % Evaluate entire population at once if possible
+    [popSize, nvars] = size(population);
+    
+    % For simple functions, vectorize directly
+    if strcmp(func2str(fitnessFcn), 'sphere')
+        fitness = sum(population.^2, 2);
+    else
+        % Fallback to arrayfun for custom functions
+        fitness = arrayfun(@(i) fitnessFcn(population(i,:)), 1:popSize)';
+    end
+end
+
+% Vectorized crossover
+function children = vectorizedCrossover(parents, alpha)
+    n = size(parents, 1);
+    shuffled = parents(randperm(n), :);
+    
+    % Blend crossover for all pairs simultaneously
+    weights = rand(n/2, 1);
+    children1 = weights .* parents(1:2:end, :) + (1-weights) .* parents(2:2:end, :);
+    children2 = (1-weights) .* parents(1:2:end, :) + weights .* parents(2:2:end, :);
+    
+    children = [children1; children2];
+end
+```
+
+### GPU Acceleration
+
+Use MATLAB's GPU computing for large populations:
+
+```matlab
+function [bestSolution, bestFitness] = gpuGA(fitnessFcn, nvars, options)
+    % Transfer population to GPU
+    population = gpuArray(rand(options.PopulationSize, nvars));
+    population = population .* (options.ub - options.lb) + options.lb;
+    
+    for gen = 1:options.MaxGenerations
+        % Evaluate fitness on GPU
+        fitness = arrayfun(fitnessFcn, population);
+        
+        % Selection, crossover, mutation on GPU
+        [~, sortIdx] = sort(fitness);
+        population = population(sortIdx, :);
+        
+        % Elite preservation
+        newPop = population(1:options.EliteCount, :);
+        
+        % Generate offspring
+        for i = options.EliteCount+1:2:options.PopulationSize
+            % Tournament selection
+            p1 = tournamentSelectGPU(population, fitness, options.TournamentSize);
+            p2 = tournamentSelectGPU(population, fitness, options.TournamentSize);
+            
+            % Crossover and mutation
+            [c1, c2] = crossoverGPU(p1, p2, options.CrossoverFraction);
+            c1 = mutateGPU(c1, options.MutationRate, options.lb, options.ub);
+            c2 = mutateGPU(c2, options.MutationRate, options.lb, options.ub);
+            
+            newPop = [newPop; c1; c2];
+        end
+        
+        population = newPop(1:options.PopulationSize, :);
+    end
+    
+    % Transfer result back to CPU
+    bestSolution = gather(population(1, :));
+    bestFitness = gather(fitness(1));
+end
+```
+
+### Custom Visualization Dashboard
+
+Create an interactive optimization dashboard:
+
+```matlab
+function fig = createGADashboard(gaData)
+    fig = figure('Position', [100, 100, 1400, 800], 'Name', 'GA Dashboard');
+    
+    % Panel 1: Convergence plot
+    subplot(2, 3, 1);
+    semilogy(gaData.bestHistory, 'b-', 'LineWidth', 2);
+    hold on;
+    semilogy(gaData.meanHistory, 'r--', 'LineWidth', 1);
+    hold off;
+    xlabel('Generation');
+    ylabel('Fitness (log)');
+    title('Convergence');
+    legend('Best', 'Mean', 'Location', 'northeast');
+    grid on;
+    
+    % Panel 2: Population diversity
+    subplot(2, 3, 2);
+    plot(gaData.diversityHistory, 'g-', 'LineWidth', 2);
+    xlabel('Generation');
+    ylabel('Diversity');
+    title('Population Diversity');
+    grid on;
+    
+    % Panel 3: Best solution variables
+    subplot(2, 3, 3);
+    bar(gaData.bestSolution);
+    xlabel('Variable Index');
+    ylabel('Value');
+    title('Best Solution');
+    grid on;
+    
+    % Panel 4: Fitness distribution
+    subplot(2, 3, 4);
+    histogram(gaData.finalFitness, 20);
+    xlabel('Fitness');
+    ylabel('Count');
+    title('Final Population Fitness Distribution');
+    
+    % Panel 5: Variable correlation heatmap
+    subplot(2, 3, 5);
+    imagesc(corr(gaData.finalPopulation));
+    colorbar;
+    xlabel('Variable');
+    ylabel('Variable');
+    title('Variable Correlation');
+    
+    % Panel 6: Performance metrics
+    subplot(2, 3, 6);
+    metrics = {'Best Fitness', 'Mean Fitness', 'Std Dev', 'Convergence Gen'};
+    values = [gaData.bestFitness, mean(gaData.finalFitness), ...
+              std(gaData.finalFitness), gaData.convergenceGen];
+    bar(categorical(metrics), values);
+    title('Performance Metrics');
+    
+    % Add overall title
+    sgtitle(sprintf('GA Optimization Results - %d Generations', gaData.generations));
+end
+```
+
+### Constraint Handling Techniques
+
+Implement multiple constraint handling methods:
+
+```matlab
+% 1. Penalty Method
+function fitness = penaltyMethod(x, objectiveFcn, constraintFcn, penalty)
+    objValue = objectiveFcn(x);
+    [c, ceq] = constraintFcn(x);
+    
+    % Inequality constraint violations
+    violation = sum(max(0, c).^2);
+    
+    % Equality constraint violations
+    if ~isempty(ceq)
+        violation = violation + sum(ceq.^2);
+    end
+    
+    fitness = objValue + penalty * violation;
+end
+
+% 2. Repair Method
+function xRepaired = repairSolution(x, constraintFcn, bounds)
+    maxIter = 100;
+    stepSize = 0.1;
+    
+    xRepaired = x;
+    for iter = 1:maxIter
+        [c, ceq] = constraintFcn(xRepaired);
+        
+        if all(c <= 0) && all(abs(ceq) < 1e-6)
+            break;  % Feasible
+        end
+        
+        % Move towards feasibility
+        gradient = estimateConstraintGradient(xRepaired, constraintFcn);
+        xRepaired = xRepaired - stepSize * gradient;
+        
+        % Apply bounds
+        xRepaired = max(bounds.lb, min(bounds.ub, xRepaired));
+    end
+end
+
+% 3. Feasibility-Based Selection
+function selected = feasibilitySelection(pop1, pop2, constraintFcn)
+    feasible1 = isFeasible(pop1, constraintFcn);
+    feasible2 = isFeasible(pop2, constraintFcn);
+    
+    if feasible1 && ~feasible2
+        selected = pop1;
+    elseif ~feasible1 && feasible2
+        selected = pop2;
+    elseif feasible1 && feasible2
+        % Both feasible: select by fitness
+        selected = selectByFitness(pop1, pop2);
+    else
+        % Both infeasible: select by constraint violation
+        selected = selectByViolation(pop1, pop2, constraintFcn);
+    end
+end
+```
+
+### Saving and Loading GA State
+
+Enable checkpoint/restart functionality:
+
+```matlab
+function saveGAState(ga, filename)
+    state.population = ga.population;
+    state.fitness = ga.fitness;
+    state.bestSolution = ga.bestSolution;
+    state.bestFitness = ga.bestFitness;
+    state.generation = ga.generation;
+    state.history = ga.history;
+    state.options = ga.options;
+    state.rngState = rng;  % Random number generator state
+    
+    save(filename, 'state');
+    fprintf('GA state saved to %s\n', filename);
+end
+
+function ga = loadGAState(filename)
+    load(filename, 'state');
+    
+    ga.population = state.population;
+    ga.fitness = state.fitness;
+    ga.bestSolution = state.bestSolution;
+    ga.bestFitness = state.bestFitness;
+    ga.generation = state.generation;
+    ga.history = state.history;
+    ga.options = state.options;
+    
+    rng(state.rngState);  % Restore RNG state
+    fprintf('GA state loaded from %s (Generation %d)\n', filename, ga.generation);
+end
+```
+
 ---
 
 *For questions or contributions, please refer to the main repository.*
