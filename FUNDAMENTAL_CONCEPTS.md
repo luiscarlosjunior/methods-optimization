@@ -568,7 +568,17 @@ Convergência para x* = 0:
 | 4 | 0.063 | 1.000 |
 | 5 | 0.031 | 1.000 |
 
-(Nota: valores ilustrativos)
+Observe que na convergência linear, o erro é multiplicado por 0.5 a cada iteração, enquanto na convergência quadrática, o erro é elevado ao quadrado. Por exemplo, começando com erro 0.1:
+
+| Iteração | Linear (c=0.5) | Quadrática (c=1) |
+|----------|----------------|------------------|
+| 0 | 1.0×10⁻¹ | 1.0×10⁻¹ |
+| 1 | 5.0×10⁻² | 1.0×10⁻² |
+| 2 | 2.5×10⁻² | 1.0×10⁻⁴ |
+| 3 | 1.3×10⁻² | 1.0×10⁻⁸ |
+| 4 | 6.3×10⁻³ | 1.0×10⁻¹⁶ |
+
+(Nota: valores ilustrativos mostrando a rapidez superior da convergência quadrática)
 
 ---
 
