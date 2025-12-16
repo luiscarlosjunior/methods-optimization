@@ -694,18 +694,24 @@ sujeito a:  gᵢ(x) ≤ 0, i=1,...,m
 **Exemplo:**
 ```
 minimizar   x² + y²
-sujeito a:  x + y - 1 ≥ 0
+sujeito a:  x + y ≥ 1
 ```
 
-Lagrangeano: L = x² + y² - λ(x + y - 1)
+Reescrevendo na forma padrão KKT (g(x) ≤ 0):
+```
+minimizar   x² + y²
+sujeito a:  1 - x - y ≤ 0
+```
+
+Lagrangeano: L = x² + y² + λ(1 - x - y)
 
 Condições KKT:
 ```
 2x - λ = 0
 2y - λ = 0
-x + y - 1 ≥ 0
+1 - x - y ≤ 0
 λ ≥ 0
-λ(x + y - 1) = 0
+λ(1 - x - y) = 0
 ```
 
 Solução: x* = y* = 0.5, λ* = 1, f* = 0.5
