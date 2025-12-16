@@ -559,14 +559,14 @@ O número de dígitos corretos dobra a cada iteração.
 
 Convergência para x* = 0:
 
-| Iteração | Linear (c=0.5) | Quadrática (c=1) |
-|----------|----------------|------------------|
-| 0 | 1.000 | 1.000 |
-| 1 | 0.500 | 1.000 |
-| 2 | 0.250 | 1.000 |
-| 3 | 0.125 | 1.000 |
-| 4 | 0.063 | 1.000 |
-| 5 | 0.031 | 1.000 |
+| Iteração | Linear (c=0.5) |
+|----------|----------------|
+| 0        | 1.000          |
+| 1        | 0.500          |
+| 2        | 0.250          |
+| 3        | 0.125          |
+| 4        | 0.063          |
+| 5        | 0.031          |
 
 Observe que na convergência linear, o erro é multiplicado por 0.5 a cada iteração, enquanto na convergência quadrática, o erro é elevado ao quadrado. Por exemplo, começando com erro 0.1:
 
