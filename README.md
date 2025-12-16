@@ -6,6 +6,22 @@ This repository provides comprehensive implementations of state-of-the-art metah
 
 The algorithms implemented here are based on seminal research papers and have been extensively studied in the optimization literature. These methods are particularly valuable when traditional optimization techniques fail to provide satisfactory solutions due to problem complexity, multiple local optima, or computational constraints.
 
+## 📚 Prerequisites and Fundamental Concepts
+
+**New to optimization methods?** Before diving into metaheuristics, we strongly recommend reviewing the fundamental concepts that form the foundation of optimization theory and practice.
+
+👉 **[Read the Fundamental Concepts Guide](FUNDAMENTAL_CONCEPTS.md)** 📖
+
+This comprehensive guide covers:
+- **Mathematical foundations**: Calculus, linear algebra, and probability theory
+- **Basic optimization concepts**: Objective functions, constraints, feasible regions, and optimality conditions
+- **Problem classification**: Continuous vs. discrete, constrained vs. unconstrained optimization
+- **Computational complexity**: Understanding P, NP, and NP-hard problems
+- **Classical optimization methods**: Gradient descent, Newton's method, and linear programming
+- **Convergence analysis**: How to evaluate algorithm performance and stopping criteria
+
+The guide is designed to be academically rigorous while providing clear, practical examples that make complex concepts accessible to students beginning their journey in optimization.
+
 ## Theoretical Background
 
 Metaheuristic algorithms draw inspiration from various natural phenomena and mathematical concepts to solve optimization problems. Unlike exact algorithms, metaheuristics do not guarantee optimal solutions but provide high-quality approximations in reasonable computational time. This trade-off makes them invaluable for real-world applications where finding the global optimum is computationally intractable.
