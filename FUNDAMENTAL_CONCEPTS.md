@@ -273,7 +273,7 @@ Solução: x* = y* = 1/2, f* = 1/2
 
 Função de Ackley (multimodal):
 ```
-f(x,y) = -20exp(-0.2√(x²+y²)/2) - exp((cos(2πx)+cos(2πy))/2) + 20 + e
+f(x,y) = -20exp(-0.2√((x²+y²)/2)) - exp((cos(2πx)+cos(2πy))/2) + 20 + e
 ```
 
 Esta função tem um mínimo global em (0,0) com f(0,0) = 0, mas possui muitos mínimos locais que podem "enganar" algoritmos de busca local.
